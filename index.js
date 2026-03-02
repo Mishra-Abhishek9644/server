@@ -1,5 +1,4 @@
 require("dotenv").config();
-const fetch = require("node-fetch");  // ADD THIS
 
 
 const express = require('express');
