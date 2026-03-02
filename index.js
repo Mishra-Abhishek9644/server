@@ -131,53 +131,57 @@ app.post("/api/diamonds/filter", (req, res) => {
 });
 
 app.get("/api/shopify/settings", async (req, res) => {
- try {
+  try {
     const response = await fetch(
-      `https://${process.env.SHOPIFY_STORE_DOMAIN}/api/2025-10/graphql.json`,
+      `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2026-01/graphql.json`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Shopify-Storefront-Access-Token": "ab2e872fe9b37b55513783e02a13642d",
+          "X-Shopify-Access-Token": process.env.SHOPIFY_ADMIN_TOKEN,
         },
         body: JSON.stringify({
-  query: `
-    query {
-      products(first: 50, query: "tag:solitaire") {
-        nodes {
-          id
-          title
-          featuredImage {
-            url
-          }
-          priceRange {
-            minVariantPrice {
-              amount
+          query: `
+            query {
+              products(first: 50, query: "tag:solitaire") {
+                nodes {
+                  id
+                  title
+                  handle
+                  tags
+                  productType
+                  vendor
+                  featuredImage {
+                    url
+                  }
+                  variants(first: 5) {
+                    nodes {
+                      sku
+                      price
+                      inventoryQuantity
+                    }
+                  }
+                }
+              }
             }
-          }
-        }
-      }
-    }
-  `,
-}),
+          `,
+        }),
       }
     );
 
     const data = await response.json();
 
-    // If Shopify returns errors
     if (data.errors) {
       return res.status(500).json(data);
     }
 
-    res.json(data);
+    res.json(data.data.products.nodes);
 
   } catch (err) {
     console.error("Shopify Fetch Error:", err);
     res.status(500).json({ error: err.message });
   }
 });
-
 
 
 // ❌ REMOVE app.listen()
