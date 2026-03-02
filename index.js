@@ -141,19 +141,25 @@ app.get("/api/shopify/settings", async (req, res) => {
           "X-Shopify-Storefront-Access-Token": "ab2e872fe9b37b55513783e02a13642d",
         },
         body: JSON.stringify({
-          query: `
-            {
-              products(first: 5) {
-                edges {
-                  node {
-                    id
-                    title
-                  }
-                }
-              }
+  query: `
+    query {
+      products(first: 50, query: "tag:solitaire") {
+        nodes {
+          id
+          title
+          featuredImage {
+            url
+          }
+          priceRange {
+            minVariantPrice {
+              amount
             }
-          `,
-        }),
+          }
+        }
+      }
+    }
+  `,
+}),
       }
     );
 
