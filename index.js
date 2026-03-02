@@ -138,7 +138,7 @@ app.get("/api/shopify/settings", async (req, res) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Shopify-Storefront-Access-Token": process.env.STORE_FRONT_TOKEN,
+          "X-Shopify-Storefront-Access-Token": "ab2e872fe9b37b55513783e02a13642d",
         },
         body: JSON.stringify({
           query: `
