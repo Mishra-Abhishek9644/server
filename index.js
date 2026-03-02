@@ -131,9 +131,9 @@ app.post("/api/diamonds/filter", (req, res) => {
 });
 
 app.get("/api/shopify/settings", async (req, res) => {
-  try {
+ try {
     const response = await fetch(
-      `https://${process.env.SHOPIFY_STORE_DOMAIN}/api/2026-01/graphql.json`,
+      `https://${process.env.SHOPIFY_STORE_DOMAIN}/api/2025-10/graphql.json`,
       {
         method: "POST",
         headers: {
@@ -142,18 +142,12 @@ app.get("/api/shopify/settings", async (req, res) => {
         },
         body: JSON.stringify({
           query: `
-            query {
-              products(first: 50) {
-                nodes {
-                  id
-                  title
-                  featuredImage {
-                    url
-                  }
-                  priceRange {
-                    minVariantPrice {
-                      amount
-                    }
+            {
+              products(first: 5) {
+                edges {
+                  node {
+                    id
+                    title
                   }
                 }
               }
@@ -165,19 +159,18 @@ app.get("/api/shopify/settings", async (req, res) => {
 
     const data = await response.json();
 
-    const formatted = data.data.products.nodes.map(p => ({
-      id: p.id.split("/").pop(),   // clean id
-      title: p.title,
-      image: p.featuredImage?.url || "",
-      price: p.priceRange.minVariantPrice.amount
-    }));
+    // If Shopify returns errors
+    if (data.errors) {
+      return res.status(500).json(data);
+    }
 
-    res.json(formatted);
+    res.json(data);
 
   } catch (err) {
+    console.error("Shopify Fetch Error:", err);
     res.status(500).json({ error: err.message });
   }
-}); 
+});
 
 
 
