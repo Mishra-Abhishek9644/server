@@ -143,7 +143,7 @@ app.get("/api/shopify/settings", async (req, res) => {
         body: JSON.stringify({
           query: `
             query {
-              products(first: 50, query: "tag:setting") {
+              products(first: 50) {
                 nodes {
                   id
                   title
