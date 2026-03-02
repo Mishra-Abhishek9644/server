@@ -147,18 +147,12 @@ app.get("/api/shopify/settings", async (req, res) => {
                 nodes {
                   id
                   title
-                  handle
-                  tags
-                  productType
-                  vendor
                   featuredImage {
                     url
                   }
-                  variants(first: 5) {
-                    nodes {
-                      sku
-                      price
-                      inventoryQuantity
+                  priceRange {
+                    minVariantPrice {
+                      amount
                     }
                   }
                 }
@@ -175,7 +169,14 @@ app.get("/api/shopify/settings", async (req, res) => {
       return res.status(500).json(data);
     }
 
-    res.json(data.data.products.nodes);
+    const formatted = data.data.products.nodes.map((product) => ({
+      id: product.id,
+      title: product.title,
+      image: product.featuredImage?.url || "",
+      price: Number(product.priceRange?.minVariantPrice?.amount || 0),
+    }));
+
+    res.json(formatted);
 
   } catch (err) {
     console.error("Shopify Fetch Error:", err);
