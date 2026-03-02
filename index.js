@@ -185,6 +185,76 @@ app.get("/api/shopify/settings", async (req, res) => {
 });
 
 
+app.get("/api/shopify/settings/:id", async (req, res) => {
+  try {
+    const numericId = req.params.id;
+
+    // 🔥 Reconstruct Shopify GID properly
+    const fullGid = `gid://shopify/Product/${numericId}`;
+
+    const response = await fetch(
+      `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2026-01/graphql.json`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": process.env.SHOPIFY_ADMIN_TOKEN,
+        },
+        body: JSON.stringify({
+          query: `
+            query getProduct($id: ID!) {
+              product(id: $id) {
+                id
+                title
+                productType
+                vendor
+
+                images(first: 10) {
+                  nodes {
+                    url
+                  }
+                }
+
+                variants(first: 5) {
+                  nodes {
+                    sku
+                    price
+                  }
+                }
+              }
+            }
+          `,
+          variables: { id: fullGid },
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (data.errors || !data.data.product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+
+    const product = data.data.product;
+
+    const formatted = {
+      id: product.id,
+      title: product.title,
+      productType: product.productType,
+      vendor: product.vendor,
+      sku: product.variants.nodes[0]?.sku || "",
+      price: Number(product.variants.nodes[0]?.price || 0),
+      images: product.images.nodes.map((img) => img.url),
+    };
+
+    res.json(formatted);
+
+  } catch (err) {
+    console.error("Single Product Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ❌ REMOVE app.listen()
 // ✅ EXPORT app instead
 module.exports = app;
