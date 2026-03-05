@@ -185,18 +185,18 @@ app.get("/api/shopify/settings", async (req, res) => {
 });
 
 const buildShopifyQuery = ({ metal, minPrice, maxPrice }) => {
-  const parts = ["tag:solitaire"]; // default because all are solitaire
+  const parts = ["tag:solitaire"];
 
-if (metal) {
-  parts.push(`variant_option:Metal:${metal}`);
-}
+  if (metal && metal.trim() !== "") {
+    parts.push(`tag:${metal}`);
+  }
 
   if (minPrice !== undefined) {
-    parts.push(`variants.price:>=${minPrice}`);
+    parts.push(`price:>=${minPrice}`);
   }
 
   if (maxPrice !== undefined) {
-    parts.push(`variants.price:<=${maxPrice}`);
+    parts.push(`price:<=${maxPrice}`);
   }
 
   return parts.join(" AND ");
@@ -329,6 +329,8 @@ app.get("/api/shopify/settings/:id", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+console.log("SHOPIFY QUERY:", query);
 
 // ❌ REMOVE app.listen()
 // ✅ EXPORT app instead
