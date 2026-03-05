@@ -306,24 +306,20 @@ app.get("/api/shopify/settings/:id", async (req, res) => {
 
     const data = await response.json();
 
-    if (data.errors || !data.data.product) {
-      return res.status(404).json({ error: "Product not found" });
-    }
+console.log("SHOPIFY RAW:", data);
 
-    const product = data.data.product;
+if (!data?.data?.products?.nodes) {
+  return res.json([]);
+}
 
-    const formatted = {
-      id: product.id,
-      title: product.title,
-      productType: product.productType,
-      vendor: product.vendor,
-      sku: product.variants.nodes[0]?.sku || "",
-      price: Number(product.variants.nodes[0]?.price || 0),
-      images: product.images.nodes.map((img) => img.url),
-    };
+const formatted = data.data.products.nodes.map((product) => ({
+  id: product.id,
+  title: product.title,
+  image: product.featuredImage?.url || "",
+  price: Number(product.priceRange?.minVariantPrice?.amount || 0),
+}));
 
-    res.json(formatted);
-
+res.json(formatted);
   } catch (err) {
     console.error("Single Product Error:", err);
     res.status(500).json({ error: err.message });
