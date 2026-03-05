@@ -184,6 +184,81 @@ app.get("/api/shopify/settings", async (req, res) => {
   }
 });
 
+const buildShopifyQuery = ({ metal, minPrice, maxPrice }) => {
+  const parts = ["tag:solitaire"]; // default because all are solitaire
+
+  if (metal) {
+    parts.push(`tag:${metal}`);
+  }
+
+  if (minPrice !== undefined) {
+    parts.push(`variants.price:>=${minPrice}`);
+  }
+
+  if (maxPrice !== undefined) {
+    parts.push(`variants.price:<=${maxPrice}`);
+  }
+
+  return parts.join(" AND ");
+};
+
+app.post("/api/shopify/settings/filter", async (req, res) => {
+  try {
+    const { metal, price } = req.body;
+
+    const query = buildShopifyQuery({
+      metal,
+      minPrice: price?.[0],
+      maxPrice: price?.[1],
+    });
+
+    const response = await fetch(
+      `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2026-01/graphql.json`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": process.env.SHOPIFY_ADMIN_TOKEN,
+        },
+        body: JSON.stringify({
+          query: `
+            query getProducts($query: String!) {
+              products(first: 50, query: $query) {
+                nodes {
+                  id
+                  title
+                  featuredImage {
+                    url
+                  }
+                  priceRange {
+                    minVariantPrice {
+                      amount
+                    }
+                  }
+                }
+              }
+            }
+          `,
+          variables: { query },
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    const formatted = data.data.products.nodes.map((product) => ({
+      id: product.id,
+      title: product.title,
+      image: product.featuredImage?.url || "",
+      price: Number(product.priceRange?.minVariantPrice?.amount || 0),
+    }));
+
+    res.json(formatted);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.get("/api/shopify/settings/:id", async (req, res) => {
   try {
