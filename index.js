@@ -187,9 +187,9 @@ app.get("/api/shopify/settings", async (req, res) => {
 const buildShopifyQuery = ({ metal, minPrice, maxPrice }) => {
   const parts = ["tag:solitaire"]; // default because all are solitaire
 
-  if (metal) {
-    parts.push(`tag:${metal}`);
-  }
+if (metal) {
+  parts.push(`variant_option:Metal:${metal}`);
+}
 
   if (minPrice !== undefined) {
     parts.push(`variants.price:>=${minPrice}`);
