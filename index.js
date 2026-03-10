@@ -332,11 +332,11 @@ app.get("/api/shopify/settings/:id", async (req, res) => {
 
 app.post("/api/create-ring", async (req, res) => {
   try {
+    const { diamond, setting } = req.body;
+    
     if (!diamond || !setting) {
   return res.status(400).json({ error: "Missing diamond or setting" });
 }
-    const { diamond, setting } = req.body;
-
     const title = `${setting.title} with ${diamond.carat}ct ${diamond.shape} Diamond`;
 
     const totalPrice =
