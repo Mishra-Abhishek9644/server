@@ -261,6 +261,7 @@ app.post("/api/shopify/settings/filter", async (req, res) => {
 });
 
 app.get("/api/shopify/settings/:id", async (req, res) => {
+  console.log("CREATE RING ROUTE HIT");
   try {
     const numericId = req.params.id;
 
