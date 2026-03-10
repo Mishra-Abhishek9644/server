@@ -341,7 +341,7 @@ app.post("/api/create-ring", async (req, res) => {
     const title = `${setting.title} with ${diamond.carat}ct ${diamond.shape} Diamond`;
 
     const totalPrice =
-      (Number(setting.price || 0) + Number(diamond.price || 0)).toFixed(2);
+      Number(setting.price || 0) + Number(diamond.price || 0);
 
     const endpoint = `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2026-01/graphql.json`;
 
@@ -354,6 +354,39 @@ app.post("/api/create-ring", async (req, res) => {
     /* 1️⃣ CREATE PRODUCT                                 */
     /* -------------------------------------------------- */
 
+    const searchProduct = await fetch(endpoint, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    query: `
+      query ($query: String!) {
+        productVariants(first:1, query:$query) {
+          nodes {
+            id
+            product {
+              id
+            }
+          }
+        }
+      }
+    `,
+    variables: {
+      query: `sku:${diamond.sku}`
+    }
+  })
+});
+
+const existingData = await searchProduct.json();
+
+const existingVariant =
+  existingData?.data?.productVariants?.nodes?.[0];
+
+if (existingVariant) {
+  return res.json({
+    variantId: existingVariant.id
+  });
+}
+
     const createProduct = await fetch(endpoint, {
       method: "POST",
       headers,
@@ -363,6 +396,11 @@ app.post("/api/create-ring", async (req, res) => {
             productCreate(input: $input) {
               product {
                 id
+                variants(first:1){
+                  nodes{
+                    id
+                  }
+                }
               }
               userErrors {
                 field
@@ -401,22 +439,24 @@ app.post("/api/create-ring", async (req, res) => {
 
     const productId = productData.data.productCreate.product.id;
 
+    const defaultVariantId =
+      productData.data.productCreate.product.variants.nodes[0].id;
+
     /* -------------------------------------------------- */
-    /* 2️⃣ CREATE VARIANT                                 */
+    /* 2️⃣ UPDATE DEFAULT VARIANT                         */
     /* -------------------------------------------------- */
 
-    const createVariant = await fetch(endpoint, {
+    const updateVariant = await fetch(endpoint, {
       method: "POST",
       headers,
       body: JSON.stringify({
         query: `
-          mutation productVariantsBulkCreate(
-            $productId: ID!
-            $variants: [ProductVariantsBulkInput!]!
-          ) {
-            productVariantsBulkCreate(productId: $productId, variants: $variants) {
-              productVariants {
+          mutation productVariantUpdate($input: ProductVariantInput!) {
+            productVariantUpdate(input: $input) {
+              productVariant {
                 id
+                price
+                sku
               }
               userErrors {
                 field
@@ -426,54 +466,40 @@ app.post("/api/create-ring", async (req, res) => {
           }
         `,
         variables: {
-          productId: productId,
-          variants: [
-            {
-              price: totalPrice,
-              sku: diamond.sku,
-              inventoryPolicy: "DENY",
-              inventoryItem: {
-                tracked: false
-              }
-            }
-          ]
+          input: {
+            id: defaultVariantId,
+            price: totalPrice.toString(),
+            sku: diamond.sku,
+            inventoryPolicy: "DENY"
+          }
         }
       })
     });
 
-    const variantData = await createVariant.json();
+    const variantData = await updateVariant.json();
 
     if (
       variantData.errors ||
-      variantData.data.productVariantsBulkCreate.userErrors.length
+      variantData.data.productVariantUpdate.userErrors.length
     ) {
       return res.status(500).json(variantData);
     }
 
-    const variantId =
-      variantData.data.productVariantsBulkCreate.productVariants[0].id;
-
-    if (!variantId) {
-      return res.status(500).json({ error: "Variant creation failed" });
-    }
+    const variantId = variantData.data.productVariantUpdate.productVariant.id;
 
     /* -------------------------------------------------- */
     /* 3️⃣ ADD PRODUCT IMAGES                             */
     /* -------------------------------------------------- */
 
-    const addImages = await fetch(endpoint, {
+    await fetch(endpoint, {
       method: "POST",
       headers,
       body: JSON.stringify({
         query: `
-          mutation productCreateMedia(
-            $productId: ID!
-            $media: [CreateMediaInput!]!
-          ) {
+          mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
             productCreateMedia(productId: $productId, media: $media) {
               media {
                 alt
-                mediaContentType
               }
               userErrors {
                 field
@@ -497,12 +523,6 @@ app.post("/api/create-ring", async (req, res) => {
         }
       })
     });
-
-    const imageData = await addImages.json();
-
-    if (imageData.errors || imageData.data.productCreateMedia.userErrors.length) {
-      console.error("Image upload error:", imageData);
-    }
 
     /* -------------------------------------------------- */
     /* 4️⃣ RETURN VARIANT ID                              */
