@@ -261,7 +261,6 @@ app.post("/api/shopify/settings/filter", async (req, res) => {
 });
 
 app.get("/api/shopify/settings/:id", async (req, res) => {
-  console.log("CREATE RING ROUTE HIT");
   try {
     const numericId = req.params.id;
 
@@ -327,6 +326,74 @@ app.get("/api/shopify/settings/:id", async (req, res) => {
 
   } catch (err) {
     console.error("Single Product Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/create-ring", async (req, res) => {
+  try {
+    if (!diamond || !setting) {
+  return res.status(400).json({ error: "Missing diamond or setting" });
+}
+    const { diamond, setting } = req.body;
+
+    const title = `${setting.title} with ${diamond.carat}ct ${diamond.shape} Diamond`;
+
+    const totalPrice =
+      Number(setting.price || 0) + Number(diamond.price || 0);
+
+    const productData = {
+      product: {
+        title: title,
+        body_html: `
+          <strong>Setting:</strong> ${setting.title}<br/>
+          <strong>Diamond:</strong> ${diamond.shape} ${diamond.carat}ct<br/>
+          Color: ${diamond.color}<br/>
+          Clarity: ${diamond.clarity}<br/>
+          SKU: ${diamond.sku}
+        `,
+        vendor: "Ring Builder",
+        product_type: "Custom Ring",
+        tags: "ring-builder",
+         images: [
+      {
+        src: diamond.image
+      }
+    ],
+        variants: [
+          {
+            price: totalPrice,
+            sku: `RB-${diamond.sku}-${Date.now()}`
+          }
+        ]
+      }
+    };
+
+    const response = await fetch(
+      `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2026-01/products.json`,
+      {
+        method: "POST",
+        headers: {
+          "X-Shopify-Access-Token": process.env.SHOPIFY_ADMIN_TOKEN,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(productData)
+      }
+    );
+    console.log("ADMIN TOKEN:", process.env.SHOPIFY_ADMIN_TOKEN);
+console.log("STORE:", process.env.SHOPIFY_STORE_DOMAIN);
+    const data = await response.json();
+
+    if (!data.product) {
+      return res.status(500).json(data);
+    }
+
+const variantId = `gid://shopify/ProductVariant/${data.product.variants[0].id}`;
+
+    res.json({ variantId });
+
+  } catch (err) {
+    console.error("Create Ring Error:", err);
     res.status(500).json({ error: err.message });
   }
 });
