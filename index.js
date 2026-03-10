@@ -340,7 +340,7 @@ app.post("/api/create-ring", async (req, res) => {
     const title = `${setting.title} with ${diamond.carat}ct ${diamond.shape} Diamond`;
 
     const totalPrice =
-      Number(setting.price || 0) + Number(diamond.price || 0);
+  (Number(setting.price || 0) + Number(diamond.price || 0)).toFixed(2);
 
     const productData = {
       product: {
@@ -356,10 +356,9 @@ app.post("/api/create-ring", async (req, res) => {
         product_type: "Custom Ring",
         tags: "ring-builder",
          images: [
-      {
-        src: diamond.image
-      }
-    ],
+  { src: setting.images?.[0] },
+  { src: diamond.image }
+],
         variants: [
           {
             price: totalPrice,
