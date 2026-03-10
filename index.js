@@ -343,55 +343,59 @@ app.post("/api/create-ring", async (req, res) => {
     const totalPrice =
       (Number(setting.price || 0) + Number(diamond.price || 0)).toFixed(2);
 
+    const endpoint = `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2026-01/graphql.json`;
+
+    const headers = {
+      "Content-Type": "application/json",
+      "X-Shopify-Access-Token": process.env.SHOPIFY_ADMIN_TOKEN
+    };
+
     /* -------------------------------------------------- */
     /* 1️⃣ CREATE PRODUCT                                 */
     /* -------------------------------------------------- */
 
-    const createProduct = await fetch(
-      `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2026-01/graphql.json`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": process.env.SHOPIFY_ADMIN_TOKEN
-        },
-        body: JSON.stringify({
-          query: `
-            mutation productCreate($input: ProductInput!) {
-              productCreate(input: $input) {
-                product {
-                  id
-                }
-                userErrors {
-                  field
-                  message
-                }
+    const createProduct = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        query: `
+          mutation productCreate($input: ProductInput!) {
+            productCreate(input: $input) {
+              product {
+                id
+              }
+              userErrors {
+                field
+                message
               }
             }
-          `,
-          variables: {
-            input: {
-              title: title,
-              descriptionHtml: `
-                <strong>Setting:</strong> ${setting.title}<br/>
-                <strong>Diamond:</strong> ${diamond.shape} ${diamond.carat}ct<br/>
-                Color: ${diamond.color}<br/>
-                Clarity: ${diamond.clarity}<br/>
-                Certificate: ${diamond.sku}
-              `,
-              vendor: "Ring Builder",
-              productType: "Custom Ring",
-              tags: ["ring-builder"],
-              status: "UNLISTED"
-            }
           }
-        })
-      }
-    );
+        `,
+        variables: {
+          input: {
+            title: title,
+            descriptionHtml: `
+              <strong>Setting:</strong> ${setting.title}<br/>
+              <strong>Diamond:</strong> ${diamond.shape} ${diamond.carat}ct<br/>
+              Color: ${diamond.color}<br/>
+              Clarity: ${diamond.clarity}<br/>
+              Certificate: ${diamond.sku}
+            `,
+            vendor: "Ring Builder",
+            productType: "Custom Ring",
+            tags: ["ring-builder"],
+            status: "UNLISTED"
+          }
+        }
+      })
+    });
 
     const productData = await createProduct.json();
 
-    if (productData.errors || productData.data.productCreate.userErrors.length) {
+    if (
+      productData.errors ||
+      productData.data.productCreate.userErrors.length
+    ) {
       return res.status(500).json(productData);
     }
 
@@ -401,45 +405,48 @@ app.post("/api/create-ring", async (req, res) => {
     /* 2️⃣ CREATE VARIANT                                 */
     /* -------------------------------------------------- */
 
-    const createVariant = await fetch(
-      `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2026-01/graphql.json`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Shopify-Access-Token": process.env.SHOPIFY_ADMIN_TOKEN
-        },
-        body: JSON.stringify({
-          query: `
-            mutation productVariantsBulkCreate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-              productVariantsBulkCreate(productId: $productId, variants: $variants) {
-                productVariants {
-                  id
-                }
-                userErrors {
-                  field
-                  message
-                }
+    const createVariant = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        query: `
+          mutation productVariantsBulkCreate(
+            $productId: ID!
+            $variants: [ProductVariantsBulkInput!]!
+          ) {
+            productVariantsBulkCreate(productId: $productId, variants: $variants) {
+              productVariants {
+                id
+              }
+              userErrors {
+                field
+                message
               }
             }
-          `,
-          variables: {
-            productId: productId,
-            variants: [
-              {
-                price: totalPrice,
-                sku: diamond.sku,
-                inventoryPolicy: "DENY"
-              }
-            ]
           }
-        })
-      }
-    );
+        `,
+        variables: {
+          productId: productId,
+          variants: [
+            {
+              price: totalPrice,
+              sku: diamond.sku,
+              inventoryPolicy: "DENY",
+              inventoryItem: {
+                tracked: false
+              }
+            }
+          ]
+        }
+      })
+    });
 
     const variantData = await createVariant.json();
 
-    if (variantData.errors || variantData.data.productVariantsBulkCreate.userErrors.length) {
+    if (
+      variantData.errors ||
+      variantData.data.productVariantsBulkCreate.userErrors.length
+    ) {
       return res.status(500).json(variantData);
     }
 
@@ -449,6 +456,57 @@ app.post("/api/create-ring", async (req, res) => {
     if (!variantId) {
       return res.status(500).json({ error: "Variant creation failed" });
     }
+
+    /* -------------------------------------------------- */
+    /* 3️⃣ ADD PRODUCT IMAGES                             */
+    /* -------------------------------------------------- */
+
+    const addImages = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        query: `
+          mutation productCreateMedia(
+            $productId: ID!
+            $media: [CreateMediaInput!]!
+          ) {
+            productCreateMedia(productId: $productId, media: $media) {
+              media {
+                alt
+                mediaContentType
+              }
+              userErrors {
+                field
+                message
+              }
+            }
+          }
+        `,
+        variables: {
+          productId,
+          media: [
+            {
+              mediaContentType: "IMAGE",
+              originalSource: setting.images?.[0] || setting.image
+            },
+            {
+              mediaContentType: "IMAGE",
+              originalSource: diamond.image
+            }
+          ]
+        }
+      })
+    });
+
+    const imageData = await addImages.json();
+
+    if (imageData.errors || imageData.data.productCreateMedia.userErrors.length) {
+      console.error("Image upload error:", imageData);
+    }
+
+    /* -------------------------------------------------- */
+    /* 4️⃣ RETURN VARIANT ID                              */
+    /* -------------------------------------------------- */
 
     res.json({ variantId });
 
