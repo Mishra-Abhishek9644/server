@@ -67,7 +67,7 @@ app.post("/api/diamonds/filter", (req, res) => {
   } = req.body;
 
   const COLORS = ["L", "K", "J", "I", "H", "G", "F", "E", "D"];
-  const CLARITY = ["SI2","SI1","VS2","VS1","VVS2","VVS1","IF","FL"];
+  const CLARITY = ["SI2", "SI1", "VS2", "VS1", "VVS2", "VVS1", "IF", "FL"];
   const POLISH = ["ID", "EX", "VG", "GD", "FR"];
   const SYM = ["ID", "EX", "VG", "GD", "FR"];
   const FLUOR = ["NON", "FNT", "MED", "STG"];
@@ -333,61 +333,122 @@ app.get("/api/shopify/settings/:id", async (req, res) => {
 app.post("/api/create-ring", async (req, res) => {
   try {
     const { diamond, setting } = req.body;
-    
+
     if (!diamond || !setting) {
-  return res.status(400).json({ error: "Missing diamond or setting" });
-}
+      return res.status(400).json({ error: "Missing diamond or setting" });
+    }
+
     const title = `${setting.title} with ${diamond.carat}ct ${diamond.shape} Diamond`;
 
     const totalPrice =
-  (Number(setting.price || 0) + Number(diamond.price || 0)).toFixed(2);
+      (Number(setting.price || 0) + Number(diamond.price || 0)).toFixed(2);
 
-    const productData = {
-      product: {
-        title: title,
-        body_html: `
-          <strong>Setting:</strong> ${setting.title}<br/>
-          <strong>Diamond:</strong> ${diamond.shape} ${diamond.carat}ct<br/>
-          Color: ${diamond.color}<br/>
-          Clarity: ${diamond.clarity}<br/>
-          SKU: ${diamond.sku}
-        `,
-        vendor: "Ring Builder",
-        product_type: "Custom Ring",
-        tags: "ring-builder",
-         images: [
-  { src: setting.images?.[0] },
-  { src: diamond.image }
-],
-        variants: [
-          {
-            price: totalPrice,
-            sku: `RB-${diamond.sku}-${Date.now()}`
-          }
-        ]
-      }
-    };
+    /* -------------------------------------------------- */
+    /* 1️⃣ CREATE PRODUCT                                 */
+    /* -------------------------------------------------- */
 
-    const response = await fetch(
-      `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2026-01/products.json`,
+    const createProduct = await fetch(
+      `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2026-01/graphql.json`,
       {
         method: "POST",
         headers: {
-          "X-Shopify-Access-Token": process.env.SHOPIFY_ADMIN_TOKEN,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": process.env.SHOPIFY_ADMIN_TOKEN
         },
-        body: JSON.stringify(productData)
+        body: JSON.stringify({
+          query: `
+            mutation productCreate($input: ProductInput!) {
+              productCreate(input: $input) {
+                product {
+                  id
+                }
+                userErrors {
+                  field
+                  message
+                }
+              }
+            }
+          `,
+          variables: {
+            input: {
+              title: title,
+              descriptionHtml: `
+                <strong>Setting:</strong> ${setting.title}<br/>
+                <strong>Diamond:</strong> ${diamond.shape} ${diamond.carat}ct<br/>
+                Color: ${diamond.color}<br/>
+                Clarity: ${diamond.clarity}<br/>
+                Certificate: ${diamond.sku}
+              `,
+              vendor: "Ring Builder",
+              productType: "Custom Ring",
+              tags: ["ring-builder"],
+              status: "UNLISTED"
+            }
+          }
+        })
       }
     );
-    console.log("ADMIN TOKEN:", process.env.SHOPIFY_ADMIN_TOKEN);
-console.log("STORE:", process.env.SHOPIFY_STORE_DOMAIN);
-    const data = await response.json();
 
-    if (!data.product) {
-      return res.status(500).json(data);
+    const productData = await createProduct.json();
+
+    if (productData.errors || productData.data.productCreate.userErrors.length) {
+      return res.status(500).json(productData);
     }
 
-const variantId = `gid://shopify/ProductVariant/${data.product.variants[0].id}`;
+    const productId = productData.data.productCreate.product.id;
+
+    /* -------------------------------------------------- */
+    /* 2️⃣ CREATE VARIANT                                 */
+    /* -------------------------------------------------- */
+
+    const createVariant = await fetch(
+      `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2026-01/graphql.json`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Shopify-Access-Token": process.env.SHOPIFY_ADMIN_TOKEN
+        },
+        body: JSON.stringify({
+          query: `
+            mutation productVariantsBulkCreate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+              productVariantsBulkCreate(productId: $productId, variants: $variants) {
+                productVariants {
+                  id
+                }
+                userErrors {
+                  field
+                  message
+                }
+              }
+            }
+          `,
+          variables: {
+            productId: productId,
+            variants: [
+              {
+                price: totalPrice,
+                sku: diamond.sku,
+                inventoryPolicy: "DENY"
+              }
+            ]
+          }
+        })
+      }
+    );
+
+    const variantData = await createVariant.json();
+
+    if (variantData.errors || variantData.data.productVariantsBulkCreate.userErrors.length) {
+      return res.status(500).json(variantData);
+    }
+
+    const variantId =
+      variantData.data.productVariantsBulkCreate.productVariants[0].id;
+
+    if (!variantId) {
+      return res.status(500).json({ error: "Variant creation failed" });
+    }
 
     res.json({ variantId });
 
