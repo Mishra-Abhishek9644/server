@@ -438,6 +438,7 @@ app.post("/api/create-ring", async (req, res) => {
     }
 
     const productId = productData.data.productCreate.product.id;
+    console.log("productId".productId)
 
     const defaultVariantId =
       productData.data.productCreate.product.variants.nodes[0].id;
