@@ -342,6 +342,8 @@ app.post("/api/create-ring", async (req, res) => {
 
     const totalPrice =
       Number(setting.price || 0) + Number(diamond.price || 0);
+      console.log(totalPrice);
+      
 
     const endpoint = `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2026-01/graphql.json`;
 
@@ -434,11 +436,11 @@ app.post("/api/create-ring", async (req, res) => {
       productData.errors ||
       productData.data.productCreate.userErrors.length
     ) {
-      return res.status(500).json(productData);
+      return res.status(500).json(productData,);
     }
 
     const productId = productData.data.productCreate.product.id;
-    console.log("productId".productId)
+    console.log("productId",productId)
 
     const defaultVariantId =
       productData.data.productCreate.product.variants.nodes[0].id;
