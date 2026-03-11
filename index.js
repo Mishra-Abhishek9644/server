@@ -371,7 +371,7 @@ app.post("/api/create-ring", async (req, res) => {
       }
     `,
         variables: {
-          query: `sku:${diamond.sku}`
+          query: `sku:"${diamond.sku}"`
         }
       })
     });
@@ -495,38 +495,39 @@ app.post("/api/create-ring", async (req, res) => {
     /* -------------------------------------------------- */
 
     await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        query: `
-          mutation productUpdate($input: ProductInput!) {
-  productUpdate(input: $input) {
-    product {
-      id
-    }
-    userErrors {
-      field
-      message
-    }
-  }
-}
-        `,
-        variables: {
-          productId,
-          media: [
-            {
-              mediaContentType: "IMAGE",
-              originalSource: setting.images?.[0] || setting.image
-            },
-            {
-              mediaContentType: "IMAGE",
-              originalSource: diamond.image
-            }
-          ]
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    query: `
+      mutation productUpdate($input: ProductInput!) {
+        productUpdate(input: $input) {
+          product {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
         }
-      })
-    });
-
+      }
+    `,
+    variables: {
+      input: {
+        id: productId,
+        media: [
+          {
+            mediaContentType: "IMAGE",
+            originalSource: setting.images?.[0] || setting.image
+          },
+          {
+            mediaContentType: "IMAGE",
+            originalSource: diamond.image
+          }
+        ]
+      }
+    }
+  })
+});
     /* -------------------------------------------------- */
     /* 4️⃣ RETURN VARIANT ID                              */
     /* -------------------------------------------------- */
