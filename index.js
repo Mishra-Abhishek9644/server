@@ -355,10 +355,10 @@ app.post("/api/create-ring", async (req, res) => {
     /* -------------------------------------------------- */
 
     const searchProduct = await fetch(endpoint, {
-  method: "POST",
-  headers,
-  body: JSON.stringify({
-    query: `
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        query: `
       query ($query: String!) {
         productVariants(first:1, query:$query) {
           nodes {
@@ -370,22 +370,22 @@ app.post("/api/create-ring", async (req, res) => {
         }
       }
     `,
-    variables: {
-      query: `sku:${diamond.sku}`
+        variables: {
+          query: `sku:${diamond.sku}`
+        }
+      })
+    });
+
+    const existingData = await searchProduct.json();
+
+    const existingVariant =
+      existingData?.data?.productVariants?.nodes?.[0];
+
+    if (existingVariant) {
+      return res.json({
+        variantId: existingVariant.id
+      });
     }
-  })
-});
-
-const existingData = await searchProduct.json();
-
-const existingVariant =
-  existingData?.data?.productVariants?.nodes?.[0];
-
-if (existingVariant) {
-  return res.json({
-    variantId: existingVariant.id
-  });
-}
 
     const createProduct = await fetch(endpoint, {
       method: "POST",
@@ -422,7 +422,7 @@ if (existingVariant) {
             vendor: "Ring Builder",
             productType: "Custom Ring",
             tags: ["ring-builder"],
-            status: "UNLISTED"
+            status: "ACTIVE"
           }
         }
       })
@@ -470,7 +470,10 @@ if (existingVariant) {
             id: defaultVariantId,
             price: totalPrice.toString(),
             sku: diamond.sku,
+            inventoryManagement: "SHOPIFY",
+            inventoryQuantity: 1,
             inventoryPolicy: "DENY"
+
           }
         }
       })
@@ -496,17 +499,17 @@ if (existingVariant) {
       headers,
       body: JSON.stringify({
         query: `
-          mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
-            productCreateMedia(productId: $productId, media: $media) {
-              media {
-                alt
-              }
-              userErrors {
-                field
-                message
-              }
-            }
-          }
+          mutation productUpdate($input: ProductInput!) {
+  productUpdate(input: $input) {
+    product {
+      id
+    }
+    userErrors {
+      field
+      message
+    }
+  }
+}
         `,
         variables: {
           productId,
