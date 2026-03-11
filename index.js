@@ -471,9 +471,7 @@ app.post("/api/create-ring", async (req, res) => {
             id: defaultVariantId,
             price: totalPrice.toString(),
             sku: diamond.sku,
-            inventoryManagement: "SHOPIFY",
-            inventoryQuantity: 1,
-            inventoryPolicy: "DENY"
+            
 
           }
         }
