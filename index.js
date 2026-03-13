@@ -55,7 +55,7 @@ app.post("/api/diamonds/filter", (req, res) => {
   const db = getDB();
 
   const {
-    shape,
+    Dshape,
     carat,
     colorRange,
     clarityRange,
@@ -75,7 +75,7 @@ app.post("/api/diamonds/filter", (req, res) => {
 
   let results = db.diamonds;
 
- if (shape) {
+ if (Dshape) {
   results = results.filter(
     d => String(d.shape).toUpperCase() === String(shape).toUpperCase()
   );
