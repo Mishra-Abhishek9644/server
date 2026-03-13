@@ -350,18 +350,16 @@ app.post("/api/create-ring", async (req, res) => {
 
     const totalPrice =
       Number(setting.price || 0) + Number(diamond.price || 0);
-      console.log(totalPrice);
-      
 
     const endpoint = `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2026-01/graphql.json`;
 
     const headers = {
       "Content-Type": "application/json",
-      "X-Shopify-Access-Token": process.env.SHOPIFY_ADMIN_TOKEN
+      "X-Shopify-Access-Token": process.env.SHOPIFY_ADMIN_TOKEN,
     };
 
     /* -------------------------------------------------- */
-    /* 1️⃣ CREATE PRODUCT                                 */
+    /* 1️⃣ CHECK IF VARIANT ALREADY EXISTS                */
     /* -------------------------------------------------- */
 
     const searchProduct = await fetch(endpoint, {
@@ -369,21 +367,21 @@ app.post("/api/create-ring", async (req, res) => {
       headers,
       body: JSON.stringify({
         query: `
-      query ($query: String!) {
-        productVariants(first:1, query:$query) {
-          nodes {
-            id
-            product {
-              id
+          query ($query: String!) {
+            productVariants(first:1, query:$query) {
+              nodes {
+                id
+                product {
+                  id
+                }
+              }
             }
           }
-        }
-      }
-    `,
+        `,
         variables: {
-          query: `sku:"${diamond.sku}"`
-        }
-      })
+          query: `sku:${diamond.sku}`,
+        },
+      }),
     });
 
     const existingData = await searchProduct.json();
@@ -393,17 +391,21 @@ app.post("/api/create-ring", async (req, res) => {
 
     if (existingVariant) {
       return res.json({
-        variantId: existingVariant.id
+        variantId: existingVariant.id,
       });
     }
+
+    /* -------------------------------------------------- */
+    /* 2️⃣ CREATE PRODUCT                                 */
+    /* -------------------------------------------------- */
 
     const createProduct = await fetch(endpoint, {
       method: "POST",
       headers,
       body: JSON.stringify({
         query: `
-          mutation productCreate($input: ProductInput!) {
-            productCreate(input: $input) {
+          mutation productCreate($product: ProductCreateInput!) {
+            productCreate(product: $product) {
               product {
                 id
                 variants(first:1){
@@ -420,7 +422,7 @@ app.post("/api/create-ring", async (req, res) => {
           }
         `,
         variables: {
-          input: {
+          product: {
             title: title,
             descriptionHtml: `
               <strong>Setting:</strong> ${setting.title}<br/>
@@ -432,10 +434,10 @@ app.post("/api/create-ring", async (req, res) => {
             vendor: "Ring Builder",
             productType: "Custom Ring",
             tags: ["ring-builder"],
-            status: "ACTIVE"
-          }
-        }
-      })
+            status: "ACTIVE",
+          },
+        },
+      }),
     });
 
     const productData = await createProduct.json();
@@ -444,17 +446,16 @@ app.post("/api/create-ring", async (req, res) => {
       productData.errors ||
       productData.data.productCreate.userErrors.length
     ) {
-      return res.status(500).json(productData,);
+      return res.status(500).json(productData);
     }
 
     const productId = productData.data.productCreate.product.id;
-    console.log("productId",productId)
 
     const defaultVariantId =
       productData.data.productCreate.product.variants.nodes[0].id;
 
     /* -------------------------------------------------- */
-    /* 2️⃣ UPDATE DEFAULT VARIANT                         */
+    /* 3️⃣ UPDATE DEFAULT VARIANT                         */
     /* -------------------------------------------------- */
 
     const updateVariant = await fetch(endpoint, {
@@ -481,11 +482,9 @@ app.post("/api/create-ring", async (req, res) => {
             id: defaultVariantId,
             price: totalPrice.toString(),
             sku: diamond.sku,
-            
-
-          }
-        }
-      })
+          },
+        },
+      }),
     });
 
     const variantData = await updateVariant.json();
@@ -497,48 +496,60 @@ app.post("/api/create-ring", async (req, res) => {
       return res.status(500).json(variantData);
     }
 
-    const variantId = variantData.data.productVariantUpdate.productVariant.id;
+    const variantId =
+      variantData.data.productVariantUpdate.productVariant.id;
 
     /* -------------------------------------------------- */
-    /* 3️⃣ ADD PRODUCT IMAGES                             */
+    /* 4️⃣ ADD PRODUCT IMAGES                             */
     /* -------------------------------------------------- */
 
-    await fetch(endpoint, {
-  method: "POST",
-  headers,
-  body: JSON.stringify({
-    query: `
-      mutation productUpdate($input: ProductInput!) {
-        productUpdate(input: $input) {
-          product {
-            id
+    const mediaMutation = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        query: `
+          mutation CreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
+            productCreateMedia(productId: $productId, media: $media) {
+              media {
+                alt
+                mediaContentType
+                status
+              }
+              mediaUserErrors {
+                field
+                message
+              }
+            }
           }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `,
-    variables: {
-      input: {
-        id: productId,
-        media: [
-          {
-            mediaContentType: "IMAGE",
-            originalSource: setting.images?.[0] || setting.image
-          },
-          {
-            mediaContentType: "IMAGE",
-            originalSource: diamond.image
-          }
-        ]
-      }
+        `,
+        variables: {
+          productId,
+          media: [
+            {
+              originalSource:
+                setting.images?.[0] || setting.image,
+              mediaContentType: "IMAGE",
+            },
+            {
+              originalSource: diamond.image,
+              mediaContentType: "IMAGE",
+            },
+          ],
+        },
+      }),
+    });
+
+    const mediaData = await mediaMutation.json();
+
+    if (
+      mediaData.errors ||
+      mediaData.data.productCreateMedia.mediaUserErrors.length
+    ) {
+      console.log("Media upload error:", mediaData);
     }
-  })
-});
+
     /* -------------------------------------------------- */
-    /* 4️⃣ RETURN VARIANT ID                              */
+    /* 5️⃣ RETURN VARIANT ID                              */
     /* -------------------------------------------------- */
 
     res.json({ variantId });
@@ -549,6 +560,4 @@ app.post("/api/create-ring", async (req, res) => {
   }
 });
 
-// ❌ REMOVE app.listen()
-// ✅ EXPORT app instead
 module.exports = app;
