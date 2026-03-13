@@ -387,7 +387,7 @@
   {
     "sku": "00795640731754200795",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "HEART",
     "carat": "0.29",
     "color": "J",
     "clarity": "VS1",
@@ -409,7 +409,7 @@
   {
     "sku": "2236639193572722366",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "EMERALD",
     "carat": "0.3",
     "color": "H",
     "clarity": "VVS2",
@@ -431,7 +431,7 @@
   {
     "sku": "45587664962825245587",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "SQUARE RADIANT",
     "carat": "0.3",
     "color": "I",
     "clarity": "VVS1",
@@ -453,7 +453,7 @@
   {
     "sku": "03446073616205603446",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "RADIANT",
     "carat": "0.3",
     "color": "D",
     "clarity": "IF",
@@ -475,7 +475,7 @@
   {
     "sku": "43449201965135643449",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "PRINCESS",
     "carat": "0.31",
     "color": "F",
     "clarity": "VS1",
@@ -497,7 +497,7 @@
   {
     "sku": "53301142022825253301",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "PEAR",
     "carat": "0.31",
     "color": "D",
     "clarity": "VVS2",
@@ -519,7 +519,7 @@
   {
     "sku": "38324385857615538324",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "OVAL",
     "carat": "0.31",
     "color": "E",
     "clarity": "SI2",
@@ -541,7 +541,7 @@
   {
     "sku": "9387372306000002293873",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "MINER",
     "carat": "0.35",
     "color": "L",
     "clarity": "SI2",
@@ -563,7 +563,7 @@
   {
     "sku": "76169118487574676169",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "ROUND",
     "carat": "0.36",
     "color": "E",
     "clarity": "IF",
@@ -585,7 +585,7 @@
   {
     "sku": "97549844276735297549",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "ASSCHER",
     "carat": "0.36",
     "color": "H",
     "clarity": "VS1",
@@ -607,7 +607,7 @@
   {
     "sku": "60195764276535660195",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "HEART",
     "carat": "0.39",
     "color": "G",
     "clarity": "VVS2",
@@ -629,7 +629,7 @@
   {
     "sku": "75756298812642275756",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "MARQUISE",
     "carat": "0.4",
     "color": "D",
     "clarity": "SI1",
