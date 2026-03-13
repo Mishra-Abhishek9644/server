@@ -55,6 +55,7 @@ app.post("/api/diamonds/filter", (req, res) => {
   const db = getDB();
 
   const {
+    shape,
     carat,
     colorRange,
     clarityRange,
@@ -65,7 +66,7 @@ app.post("/api/diamonds/filter", (req, res) => {
     depthRange,
     lwRange
   } = req.body;
-
+  // const SHAPE = ["EMERALD","SQUARE RADIANT","RADIANT","PRINCESS","PEAR","OVAL","MINER","ROUND","ASSCHER","HEART","MARQUISE"]  
   const COLORS = ["L", "K", "J", "I", "H", "G", "F", "E", "D"];
   const CLARITY = ["SI2", "SI1", "VS2", "VS1", "VVS2", "VVS1", "IF", "FL"];
   const POLISH = ["ID", "EX", "VG", "GD", "FR"];
@@ -73,6 +74,13 @@ app.post("/api/diamonds/filter", (req, res) => {
   const FLUOR = ["NON", "FNT", "MED", "STG"];
 
   let results = db.diamonds;
+
+ if (shape) {
+  results = results.filter(
+    d => String(d.shape).toUpperCase() === String(shape).toUpperCase()
+  );
+}
+
 
   if (carat) {
     results = results.filter(d =>
