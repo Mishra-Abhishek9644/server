@@ -365,7 +365,7 @@
   {
     "sku": "10242234999102210242",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "MINER",
     "carat": "0.26",
     "color": "E",
     "clarity": "SI1",
@@ -651,7 +651,7 @@
   {
     "sku": "72973269425332572973",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "MINER",
     "carat": "0.4",
     "color": "D",
     "clarity": "SI2",
@@ -673,7 +673,7 @@
   {
     "sku": "26034473468742226034",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "MINER",
     "carat": "0.41",
     "color": "D",
     "clarity": "VS2",
@@ -695,7 +695,7 @@
   {
     "sku": "50928838707264650928",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "MINER",
     "carat": "0.42",
     "color": "I",
     "clarity": "VS1",
@@ -717,7 +717,7 @@
   {
     "sku": "26255587330582626255",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "MINER",
     "carat": "0.43",
     "color": "F",
     "clarity": "VS1",
@@ -739,7 +739,7 @@
   {
     "sku": "93959211824672793959",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "MINER",
     "carat": "0.44",
     "color": "E",
     "clarity": "VS2",
@@ -761,7 +761,7 @@
   {
     "sku": "67829467037524367829",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "MINER",
     "carat": "0.46",
     "color": "E",
     "clarity": "SI1",
@@ -783,7 +783,7 @@
   {
     "sku": "45265736232424245265",
     "diamond_type": "W",
-    "shape": "CUSHION",
+    "shape": "MINER",
     "carat": "0.47",
     "color": "J",
     "clarity": "VVS2",
