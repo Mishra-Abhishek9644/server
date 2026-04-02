@@ -64,7 +64,7 @@ const ensureVariantInventoryTracked = async ({
         locations(first: 1) {
           nodes {
             id
-            name
+            
           }
         }
       }
