@@ -16,7 +16,7 @@ const corsOptions = {
     "https://bauvabhaikidukan.myshopify.com",
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization" ],
+  allowedHeaders: ["Content-Type", "Authorization"],
 };
 
 app.use(cors(corsOptions));
@@ -360,6 +360,7 @@ app.get("/api/shopify/settings/:id", async (req, res) => {
 
                   variants(first: 5) {
                     nodes {
+                      id
                       sku
                       price
                     }
@@ -388,6 +389,9 @@ app.get("/api/shopify/settings/:id", async (req, res) => {
       sku: product.variants.nodes[0]?.sku || "",
       price: Number(product.variants.nodes[0]?.price || 0),
       images: product.images.nodes.map((img) => img.url),
+
+      // 🔥 ADD THIS
+      variantId: product.variants.nodes[0]?.id || null,
     };
 
     res.json(formatted);
@@ -561,7 +565,7 @@ app.post("/api/create-diamond", async (req, res) => {
     ) {
       return res.status(500).json(updateVariantData);
     }
-    
+
     /* 4️⃣ ADD PRODUCT IMAGES                             */
     /* -------------------------------------------------- */
 
