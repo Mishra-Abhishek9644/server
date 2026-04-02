@@ -30,18 +30,6 @@ const getDB = () => {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 };
 
-
-
-const shopifyRequest = async (endpoint, headers, query, variables = {}) => {
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ query, variables }),
-  });
-
-  return response.json();
-};
-
 // Default route
 app.get('/', (req, res) => {
   res.send('API Running...');
@@ -370,8 +358,7 @@ app.post("/api/create-diamond", async (req, res) => {
 
     const title = ` ${diamond.carat}ct ${diamond.shape} Diamond`;
 
-    const totalPrice =
-      Number(diamond.price || 0);
+    const totalPrice = Number(diamond.price || 0);
 
     const endpoint = `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2026-01/graphql.json`;
 
@@ -384,7 +371,7 @@ app.post("/api/create-diamond", async (req, res) => {
     /* 1️⃣ CHECK IF VARIANT ALREADY EXISTS                */
     /* -------------------------------------------------- */
 
-    const searchProduct = await fetch(endpoint, {
+    const searchProductResponse = await fetch(endpoint, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -406,14 +393,12 @@ app.post("/api/create-diamond", async (req, res) => {
       }),
     });
 
-    const existingData = await searchProduct.json();
+    const existingData = await searchProductResponse.json();
 
     const existingVariant =
       existingData?.data?.productVariants?.nodes?.[0];
 
     if (existingVariant) {
-
-
       return res.json({
         variantId: existingVariant.id,
       });
@@ -423,7 +408,7 @@ app.post("/api/create-diamond", async (req, res) => {
     /* 2️⃣ CREATE PRODUCT                                 */
     /* -------------------------------------------------- */
 
-    const createProduct = await fetch(endpoint, {
+    const createProductResponse = await fetch(endpoint, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -465,7 +450,7 @@ app.post("/api/create-diamond", async (req, res) => {
       }),
     });
 
-    const productData = await createProduct.json();
+    const productData = await createProductResponse.json();
 
     if (
       productData.errors ||
@@ -475,118 +460,49 @@ app.post("/api/create-diamond", async (req, res) => {
     }
 
     const productId = productData.data.productCreate.product.id;
+    const variantId = productData.data.productCreate.product.variants.nodes[0].id;
 
-    const variantId =
-  productData.data.productCreate.product.variants.nodes[0].id;
-
-  // 🔥 STEP: GET inventoryItemId
-const inventoryRes = await fetch(endpoint, {
-  method: "POST",
-  headers,
-  body: JSON.stringify({
-    query: `
-      query ($id: ID!) {
-        productVariant(id: $id) {
-          inventoryItem {
-            id
-          }
-        }
-      }
-    `,
-    variables: { id: variantId },
-  }),
-});
-
-const inventoryData = await inventoryRes.json();
-
-const inventoryItemId =
-  inventoryData?.data?.productVariant?.inventoryItem?.id;
-
-  // 🔥 STEP: SET SKU
-if (inventoryItemId) {
-  const skuUpdate = await fetch(endpoint, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      query: `
-        mutation ($id: ID!,$sku: String!, $price: Money!, $input: InventoryItemInput!) {
-          inventoryItemUpdate(id: $id, input: $input) {
-            inventoryItem {
-              id
-              sku
-            }
-            userErrors {
-              field
-              message
+    const updateVariantResponse = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        query: `
+          mutation productVariantUpdate($input: ProductVariantInput!) {
+            productVariantUpdate(input: $input) {
+              productVariant {
+                id
+                sku
+                price
+              }
+              userErrors {
+                field
+                message
+              }
             }
           }
-        }
-      `,
-      variables: {
-        id: inventoryItemId,
-        input: {
-          price: $price,
-          inventoryPolicy: CONTINUE,
-        inventoryItem: { tracked: false, sku: $sku }
+        `,
+        variables: {
+          input: {
+            id: variantId,
+            sku: diamond.sku,
+            price: totalPrice.toString(),
+          },
         },
-      },
-    }),
-  });
+      }),
+    });
 
-  const skuData = await skuUpdate.json();
+    const updateVariantData = await updateVariantResponse.json();
 
-  if (
-    skuData.errors ||
-    skuData?.data?.inventoryItemUpdate?.userErrors?.length
-  ) {
-    return res.status(500).json(skuData);
-  }
-}
-
-  const updateVariant = await fetch(endpoint, {
-  method: "POST",
-  headers,
-  body: JSON.stringify({
-    query: `
-      mutation ($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-          productVariants {
-            id,
-            sku
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `,
-    variables: {
-      productId,
-      variants: [
-        {
-          id: variantId,
-          price: totalPrice.toString(),
-           
-        },
-      ],
-    },
-  }),
-});
-
-const updateData = await updateVariant.json();
-
-if (
-  updateData.errors ||
-  updateData?.data?.productVariantsBulkUpdate?.userErrors?.length
-) {
-  return res.status(500).json(updateData);
-}
+    if (
+      updateVariantData.errors ||
+      updateVariantData?.data?.productVariantUpdate?.userErrors?.length
+    ) {
+      return res.status(500).json(updateVariantData);
+    }
     
     /* 4️⃣ ADD PRODUCT IMAGES                             */
     /* -------------------------------------------------- */
 
-    // ✅ Build media safely
     const mediaInputs = [];
 
     if (diamond?.image) {
@@ -596,12 +512,8 @@ if (
       });
     }
 
-    console.log("MEDIA INPUTS:", mediaInputs);
-    console.log("DIAMOND IMAGE:", diamond?.image);
-
-    // ✅ Only call Shopify if images exist
     if (mediaInputs.length > 0) {
-      const mediaMutation = await fetch(endpoint, {
+      const mediaResponse = await fetch(endpoint, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -622,12 +534,12 @@ if (
         `,
           variables: {
             productId,
-            media: mediaInputs, // ✅ use your array here
+            media: mediaInputs,
           },
         }),
       });
 
-      const mediaData = await mediaMutation.json();
+      const mediaData = await mediaResponse.json();
 
       if (
         mediaData.errors ||
@@ -640,8 +552,6 @@ if (
           details: mediaData,
         });
       }
-    } else {
-      console.log("No valid images found, skipping media upload");
     }
 
     /* -------------------------------------------------- */
@@ -651,7 +561,7 @@ if (
     res.json({ variantId });
 
   } catch (err) {
-    console.error("Create Ring Error:", err);
+    console.error("Create Diamond Error:", err);
     res.status(500).json({ error: err.message });
   }
 });
