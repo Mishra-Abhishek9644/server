@@ -37,18 +37,44 @@ const GQL_UPDATE_DIAMOND_VARIANT = `
       variants: [{
         id: $variantId
         price: $price
+        optionValues: [{ optionName: "SKU", name: $sku }]
         inventoryPolicy: CONTINUE
         inventoryItem: { tracked: false, sku: $sku }
       }]
     ) {
       productVariants {
         id
+        title
         legacyResourceId
         availableForSale
       }
       userErrors {
         field
         message
+      }
+    }
+  }
+`;
+
+const GQL_CREATE_SKU_OPTION = `
+  mutation CreateSkuOption($productId: ID!, $options: [OptionCreateInput!]!, $variantStrategy: ProductOptionCreateVariantStrategy) {
+    productOptionsCreate(
+      productId: $productId
+      options: $options
+      variantStrategy: $variantStrategy
+    ) {
+      product {
+        id
+        options {
+          id
+          name
+          values
+        }
+      }
+      userErrors {
+        field
+        message
+        code
       }
     }
   }
@@ -485,6 +511,33 @@ app.post("/api/create-diamond", async (req, res) => {
 
     const productId = productData.data.productCreate.product.id;
     const variantId = productData.data.productCreate.product.variants.nodes[0].id;
+
+    const createOptionResponse = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        query: GQL_CREATE_SKU_OPTION,
+        variables: {
+          productId,
+          options: [
+            {
+              name: "SKU",
+              values: [{ name: diamond.sku }],
+            },
+          ],
+          variantStrategy: "LEAVE_AS_IS",
+        },
+      }),
+    });
+
+    const createOptionData = await createOptionResponse.json();
+
+    if (
+      createOptionData.errors ||
+      createOptionData?.data?.productOptionsCreate?.userErrors?.length
+    ) {
+      return res.status(500).json(createOptionData);
+    }
 
     const updateVariantResponse = await fetch(endpoint, {
       method: "POST",
