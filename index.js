@@ -390,7 +390,7 @@ app.get("/api/shopify/settings/:id", async (req, res) => {
       price: Number(product.variants.nodes[0]?.price || 0),
       images: product.images.nodes.map((img) => img.url),
 
-      // 🔥 ADD THIS
+      // 🔥 ADD THISS
       variantId: product.variants.nodes[0]?.id || null,
     };
 
