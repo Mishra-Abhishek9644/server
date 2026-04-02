@@ -509,7 +509,7 @@ if (inventoryItemId) {
     headers,
     body: JSON.stringify({
       query: `
-        mutation ($id: ID!, $input: InventoryItemInput!) {
+        mutation ($id: ID!,$sku: String!, $price: Money!, $input: InventoryItemInput!) {
           inventoryItemUpdate(id: $id, input: $input) {
             inventoryItem {
               id
@@ -525,7 +525,9 @@ if (inventoryItemId) {
       variables: {
         id: inventoryItemId,
         input: {
-          sku: diamond.sku,
+          price: $price,
+          inventoryPolicy: CONTINUE,
+        inventoryItem: { tracked: false, sku: $sku }
         },
       },
     }),
@@ -549,7 +551,8 @@ if (inventoryItemId) {
       mutation ($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
         productVariantsBulkUpdate(productId: $productId, variants: $variants) {
           productVariants {
-            id
+            id,
+            sku
           }
           userErrors {
             field
@@ -563,7 +566,8 @@ if (inventoryItemId) {
       variants: [
         {
           id: variantId,
-          price: totalPrice.toString(), // ✅ ONLY PRICE
+          price: totalPrice.toString(),
+           
         },
       ],
     },
