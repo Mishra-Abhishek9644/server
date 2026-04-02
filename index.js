@@ -19,6 +19,116 @@ const getDB = () => {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 };
 
+const getInventoryQuantity = (diamond = {}, setting = {}) => {
+  const candidates = [
+    diamond.quantity,
+    diamond.available,
+    diamond.stock,
+    setting.quantity,
+    setting.available,
+    setting.stock
+  ]
+    .map(value => Number(value))
+    .filter(value => Number.isFinite(value) && value > 0);
+
+  return candidates.length ? Math.min(...candidates) : 1;
+};
+
+const shopifyRequest = async (endpoint, headers, query, variables = {}) => {
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ query, variables }),
+  });
+
+  return response.json();
+};
+
+const ensureVariantInventoryTracked = async ({
+  endpoint,
+  headers,
+  variantId,
+  quantity,
+}) => {
+  const variantInventory = await shopifyRequest(
+    endpoint,
+    headers,
+    `
+      query VariantInventory($id: ID!) {
+        productVariant(id: $id) {
+          id
+          inventoryItem {
+            id
+          }
+        }
+        locations(first: 1) {
+          nodes {
+            id
+            name
+          }
+        }
+      }
+    `,
+    { id: variantId }
+  );
+
+  if (variantInventory.errors) {
+    throw new Error(
+      `Inventory lookup failed: ${JSON.stringify(variantInventory.errors)}`
+    );
+  }
+
+  const inventoryItemId =
+    variantInventory?.data?.productVariant?.inventoryItem?.id;
+  const locationId = variantInventory?.data?.locations?.nodes?.[0]?.id;
+
+  if (!inventoryItemId || !locationId) {
+    throw new Error("Missing Shopify inventory item or location");
+  }
+
+  const activateInventory = await shopifyRequest(
+    endpoint,
+    headers,
+    `
+      mutation ActivateInventory(
+        $inventoryItemId: ID!
+        $locationId: ID!
+        $available: Int
+      ) {
+        inventoryActivate(
+          inventoryItemId: $inventoryItemId
+          locationId: $locationId
+          available: $available
+        ) {
+          inventoryLevel {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `,
+    {
+      inventoryItemId,
+      locationId,
+      available: quantity,
+    }
+  );
+
+  const activationErrors =
+    activateInventory?.data?.inventoryActivate?.userErrors || [];
+
+  if (activateInventory.errors || activationErrors.length) {
+    throw new Error(
+      `Inventory activation failed: ${JSON.stringify(
+        activateInventory.errors || activationErrors
+      )}`
+    );
+  }
+};
+
 
 // Default route
 app.get('/', (req, res) => {
@@ -350,6 +460,7 @@ app.post("/api/create-ring", async (req, res) => {
 
     const totalPrice =
       Number(setting.price || 0) + Number(diamond.price || 0);
+    const inventoryQuantity = getInventoryQuantity(diamond, setting);
 
     const endpoint = `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2026-01/graphql.json`;
 
@@ -390,6 +501,13 @@ app.post("/api/create-ring", async (req, res) => {
       existingData?.data?.productVariants?.nodes?.[0];
 
     if (existingVariant) {
+      await ensureVariantInventoryTracked({
+        endpoint,
+        headers,
+        variantId: existingVariant.id,
+        quantity: inventoryQuantity,
+      });
+
       return res.json({
         variantId: existingVariant.id,
       });
@@ -498,6 +616,13 @@ app.post("/api/create-ring", async (req, res) => {
 
     const variantId =
       variantData.data.productVariantUpdate.productVariant.id;
+
+    await ensureVariantInventoryTracked({
+      endpoint,
+      headers,
+      variantId,
+      quantity: inventoryQuantity,
+    });
 
     /* -------------------------------------------------- */
     /* 4️⃣ ADD PRODUCT IMAGES                             */
