@@ -16,7 +16,7 @@ const corsOptions = {
     "https://bauvabhaikidukan.myshopify.com",
   ],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"],
+  allowedHeaders: ["Content-Type", "Authorization" ],
 };
 
 app.use(cors(corsOptions));
@@ -24,7 +24,7 @@ app.use(express.json());
 
 console.log("TOKEN:", process.env.STORE_FRONT_TOKEN);
 console.log("DOMAIN:", process.env.SHOPIFY_STORE_DOMAIN);
-// ✅ IMPORTANT: Read DB inside request (not at top level for Vercel)
+// ✅ IMPORTANT: Read DB inside request (not at top level for Vercell)
 const getDB = () => {
   const filePath = path.join(process.cwd(), 'database', 'db.json');
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
