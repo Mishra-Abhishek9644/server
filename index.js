@@ -467,9 +467,15 @@ app.post("/api/create-diamond", async (req, res) => {
       headers,
       body: JSON.stringify({
         query: `
-          mutation productVariantUpdate($input: ProductVariantInput!) {
-            productVariantUpdate(input: $input) {
-              productVariant {
+          mutation productVariantsBulkUpdate(
+            $productId: ID!
+            $variants: [ProductVariantsBulkInput!]!
+          ) {
+            productVariantsBulkUpdate(
+              productId: $productId
+              variants: $variants
+            ) {
+              productVariants {
                 id
                 sku
                 price
@@ -482,11 +488,14 @@ app.post("/api/create-diamond", async (req, res) => {
           }
         `,
         variables: {
-          input: {
-            id: variantId,
-            sku: diamond.sku,
-            price: totalPrice.toString(),
-          },
+          productId,
+          variants: [
+            {
+              id: variantId,
+              sku: diamond.sku,
+              price: totalPrice.toString(),
+            },
+          ],
         },
       }),
     });
@@ -495,7 +504,7 @@ app.post("/api/create-diamond", async (req, res) => {
 
     if (
       updateVariantData.errors ||
-      updateVariantData?.data?.productVariantUpdate?.userErrors?.length
+      updateVariantData?.data?.productVariantsBulkUpdate?.userErrors?.length
     ) {
       return res.status(500).json(updateVariantData);
     }
