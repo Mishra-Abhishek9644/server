@@ -19,20 +19,7 @@ const getDB = () => {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 };
 
-const getInventoryQuantity = (diamond = {}, setting = {}) => {
-  const candidates = [
-    diamond.quantity,
-    diamond.available,
-    diamond.stock,
-    setting.quantity,
-    setting.available,
-    setting.stock
-  ]
-    .map(value => Number(value))
-    .filter(value => Number.isFinite(value) && value > 0);
 
-  return candidates.length ? Math.min(...candidates) : 1;
-};
 
 const shopifyRequest = async (endpoint, headers, query, variables = {}) => {
   const response = await fetch(endpoint, {
@@ -43,92 +30,6 @@ const shopifyRequest = async (endpoint, headers, query, variables = {}) => {
 
   return response.json();
 };
-
-const ensureVariantInventoryTracked = async ({
-  endpoint,
-  headers,
-  variantId,
-  quantity,
-}) => {
-  const variantInventory = await shopifyRequest(
-    endpoint,
-    headers,
-    `
-        query VariantInventory($id: ID!) {
-          productVariant(id: $id) {
-            id
-            inventoryItem {
-              id
-            }
-          }
-          locations(first: 1) {
-            nodes {
-              id
-              
-            }
-          }
-        }
-      `,
-    { id: variantId }
-  );
-
-  if (variantInventory.errors) {
-    throw new Error(
-      `Inventory lookup failed: ${JSON.stringify(variantInventory.errors)}`
-    );
-  }
-
-  const inventoryItemId =
-    variantInventory?.data?.productVariant?.inventoryItem?.id;
-  const locationId = variantInventory?.data?.locations?.nodes?.[0]?.id;
-
-  if (!inventoryItemId || !locationId) {
-    throw new Error("Missing Shopify inventory item or location");
-  }
-
-  const activateInventory = await shopifyRequest(
-    endpoint,
-    headers,
-    `
-        mutation ActivateInventory(
-          $inventoryItemId: ID!
-          $locationId: ID!
-          $available: Int
-        ) {
-          inventoryActivate(
-            inventoryItemId: $inventoryItemId
-            locationId: $locationId
-            available: $available
-          ) {
-            inventoryLevel {
-              id
-            }
-            userErrors {
-              field
-              message
-            }
-          }
-        }
-      `,
-    {
-      inventoryItemId,
-      locationId,
-      available: quantity,
-    }
-  );
-
-  const activationErrors =
-    activateInventory?.data?.inventoryActivate?.userErrors || [];
-
-  if (activateInventory.errors || activationErrors.length) {
-    throw new Error(
-      `Inventory activation failed: ${JSON.stringify(
-        activateInventory.errors || activationErrors
-      )}`
-    );
-  }
-};
-
 
 // Default route
 app.get('/', (req, res) => {
@@ -523,6 +424,7 @@ app.post("/api/create-diamond", async (req, res) => {
                   variants(first:1){
                     nodes{
                       id
+                      
                     }
                   }
                 }
@@ -544,9 +446,16 @@ app.post("/api/create-diamond", async (req, res) => {
               `,
             vendor: "Diamond",
             productType: "Diamond",
-            tags: ["diamond"],  
+            tags: ["diamond"],
             status: "ACTIVE",
+            variants: [
+              {
+                sku: diamond.sku,
+                price: totalPrice.toString()
+              }
+            ]
           },
+
         },
       }),
     });
@@ -562,61 +471,10 @@ app.post("/api/create-diamond", async (req, res) => {
 
     const productId = productData.data.productCreate.product.id;
 
-    const defaultVariantId =
-      productData.data.productCreate.product.variants.nodes[0].id;
-
-    /* -------------------------------------------------- */
-    /* 3️⃣ UPDATE DEFAULT VARIANT                         */
-    /* -------------------------------------------------- */
-
-    const updateVariant = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        query: `
-        mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-          productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-            productVariants {
-              id
-              price
-              
-            }
-            userErrors {
-              field
-              message
-            }
-          }
-        }
-      `,
-        variables: {
-          productId,
-          variants: [
-            {
-              id: defaultVariantId,
-              price: totalPrice.toString(),
-              sku: diamond.sku,
-              inventoryManagement: null,
-
-            },
-          ],
-        },
-      }),
-    });
-    const variantData = await updateVariant.json();
-
-    if (
-      variantData.errors ||
-      variantData?.data?.productVariantsBulkUpdate?.userErrors?.length
-    ) {
-      return res.status(500).json(variantData);
-    }
-
     const variantId =
-      variantData.data.productVariantsBulkUpdate.productVariants[0].id;
+  productData.data.productCreate.product.variants.nodes[0].id;
 
-
-
-
+    
     /* 4️⃣ ADD PRODUCT IMAGES                             */
     /* -------------------------------------------------- */
 
