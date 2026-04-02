@@ -468,7 +468,8 @@ app.post("/api/create-diamond", async (req, res) => {
       body: JSON.stringify({
         query: `
           mutation productVariantsBulkUpdate(
-            $productId: ID!
+            $productId: ID!,
+            $sku:String!,
             $variants: [ProductVariantsBulkInput!]!
           ) {
             productVariantsBulkUpdate(
