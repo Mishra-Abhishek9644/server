@@ -448,19 +448,18 @@ app.get("/api/shopify/settings/:id", async (req, res) => {
   }
 });
 
-app.post("/api/create-ring", async (req, res) => {
+app.post("/api/create-diamond", async (req, res) => {
   try {
-    const { diamond, setting } = req.body;
+    const { diamond } = req.body;
 
-    if (!diamond || !setting) {
-      return res.status(400).json({ error: "Missing diamond or setting" });
+    if (!diamond) {
+      return res.status(400).json({ error: "Missing diamond " });
     }
 
-    const title = `${setting.title} with ${diamond.carat}ct ${diamond.shape} Diamond`;
+    const title = ` ${diamond.carat}ct ${diamond.shape} Diamond`;
 
     const totalPrice =
-      Number(setting.price || 0) + Number(diamond.price || 0);
-    const inventoryQuantity = getInventoryQuantity(diamond, setting);
+      Number(diamond.price || 0);
 
     const endpoint = `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2026-01/graphql.json`;
 
@@ -538,15 +537,14 @@ app.post("/api/create-ring", async (req, res) => {
           product: {
             title: title,
             descriptionHtml: `
-                <strong>Setting:</strong> ${setting.title}<br/>
                 <strong>Diamond:</strong> ${diamond.shape} ${diamond.carat}ct<br/>
                 Color: ${diamond.color}<br/>
                 Clarity: ${diamond.clarity}<br/>
                 Certificate: ${diamond.sku}
               `,
-            vendor: "Ring Builder",
-            productType: "Custom Ring",
-            tags: ["ring-builder"],
+            vendor: "Diamond",
+            productType: "Diamond",
+            tags: ["diamond"],  
             status: "ACTIVE",
           },
         },
@@ -596,8 +594,9 @@ app.post("/api/create-ring", async (req, res) => {
             {
               id: defaultVariantId,
               price: totalPrice.toString(),
-              inventoryPolicy: "CONTINUE",
-              
+              sku: diamond.sku,
+              inventoryManagement: null,
+
             },
           ],
         },
@@ -624,13 +623,6 @@ app.post("/api/create-ring", async (req, res) => {
     // ✅ Build media safely
     const mediaInputs = [];
 
-    if (setting?.images?.[0]) {
-      mediaInputs.push({
-        originalSource: setting.images[0],
-        mediaContentType: "IMAGE",
-      });
-    }
-
     if (diamond?.image) {
       mediaInputs.push({
         originalSource: diamond.image,
@@ -639,7 +631,6 @@ app.post("/api/create-ring", async (req, res) => {
     }
 
     console.log("MEDIA INPUTS:", mediaInputs);
-    console.log("SETTING IMAGE:", setting?.images);
     console.log("DIAMOND IMAGE:", diamond?.image);
 
     // ✅ Only call Shopify if images exist
