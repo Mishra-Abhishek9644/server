@@ -30,6 +30,30 @@ const getDB = () => {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 };
 
+const GQL_UPDATE_DIAMOND_VARIANT = `
+  mutation UpdateVariant($productId: ID!, $variantId: ID!, $price: Money!, $sku: String!) {
+    productVariantsBulkUpdate(
+      productId: $productId
+      variants: [{
+        id: $variantId
+        price: $price
+        inventoryPolicy: CONTINUE
+        inventoryItem: { tracked: false, sku: $sku }
+      }]
+    ) {
+      productVariants {
+        id
+        legacyResourceId
+        availableForSale
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
 // Default route
 app.get('/', (req, res) => {
   res.send('API Running...');
@@ -466,37 +490,12 @@ app.post("/api/create-diamond", async (req, res) => {
       method: "POST",
       headers,
       body: JSON.stringify({
-        query: `
-          mutation productVariantsBulkUpdate(
-            $productId: ID!,
-            $sku:String!,
-            $variants: [ProductVariantsBulkInput!]!
-          ) {
-            productVariantsBulkUpdate(
-              productId: $productId
-              variants: $variants
-            ) {
-              productVariants {
-                id
-                sku
-                price
-              }
-              userErrors {
-                field
-                message
-              }
-            }
-          }
-        `,
+        query: GQL_UPDATE_DIAMOND_VARIANT,
         variables: {
           productId,
-          variants: [
-            {
-              id: variantId,
-              sku: diamond.sku,
-              price: totalPrice.toString(),
-            },
-          ],
+          variantId,
+          sku: diamond.sku,
+          price: totalPrice.toString(),
         },
       }),
     });
