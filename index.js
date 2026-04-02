@@ -8,7 +8,18 @@ const path = require('path');
 
 const app = express();
 
-app.use(cors());
+const corsOptions = {
+  origin: [
+    "http://localhost:9292",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://bauvabhaikidukan.myshopify.com",
+  ],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 console.log("TOKEN:", process.env.STORE_FRONT_TOKEN);
