@@ -561,11 +561,11 @@ app.post("/api/create-ring", async (req, res) => {
     const productData = await createProduct.json();
 
     if (
-      productData.errors ||
-      productData.data.productCreate.userErrors.length
-    ) {
-      return res.status(500).json(productData);
-    }
+  productData.errors ||
+  productData?.data?.productCreate?.userErrors?.length
+) {
+  return res.status(500).json(productData);
+}
 
     const productId = productData.data.productCreate.product.id;
 
@@ -609,7 +609,7 @@ app.post("/api/create-ring", async (req, res) => {
 
     if (
       variantData.errors ||
-      variantData.data.productVariantUpdate.userErrors.length
+      variantData?.data?.productVariantUpdate?.userErrors?.length
     ) {
       return res.status(500).json(variantData);
     }
@@ -624,54 +624,75 @@ app.post("/api/create-ring", async (req, res) => {
       quantity: inventoryQuantity,
     });
 
-    /* -------------------------------------------------- */
-    /* 4️⃣ ADD PRODUCT IMAGES                             */
-    /* -------------------------------------------------- */
+   
+/* 4️⃣ ADD PRODUCT IMAGES                             */
+/* -------------------------------------------------- */
 
-    const mediaMutation = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        query: `
-          mutation CreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
-            productCreateMedia(productId: $productId, media: $media) {
-              media {
-                alt
-                mediaContentType
-                status
-              }
-              mediaUserErrors {
-                field
-                message
-              }
+// ✅ Build media safely
+const mediaInputs = [];
+
+if (setting?.images?.[0]) {
+  mediaInputs.push({
+    originalSource: setting.images[0],
+    mediaContentType: "IMAGE",
+  });
+}
+
+if (diamond?.image) {
+  mediaInputs.push({
+    originalSource: diamond.image,
+    mediaContentType: "IMAGE",
+  });
+}
+
+console.log("MEDIA INPUTS:", mediaInputs);
+console.log("SETTING IMAGE:", setting?.images);
+console.log("DIAMOND IMAGE:", diamond?.image);
+
+// ✅ Only call Shopify if images exist
+if (mediaInputs.length > 0) {
+  const mediaMutation = await fetch(endpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      query: `
+        mutation CreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
+          productCreateMedia(productId: $productId, media: $media) {
+            media {
+              alt
+              mediaContentType
+              status
+            }
+            mediaUserErrors {
+              field
+              message
             }
           }
-        `,
-        variables: {
-          productId,
-          media: [
-            {
-              originalSource:
-                setting.images?.[0] || setting.image,
-              mediaContentType: "IMAGE",
-            },
-            {
-              originalSource: diamond.image,
-              mediaContentType: "IMAGE",
-            },
-          ],
-        },
-      }),
+        }
+      `,
+      variables: {
+        productId,
+        media: mediaInputs, // ✅ use your array here
+      },
+    }),
+  });
+
+  const mediaData = await mediaMutation.json();
+
+  if (
+    mediaData.errors ||
+    mediaData?.data?.productCreateMedia?.mediaUserErrors?.length
+  ) {
+    console.log("Media upload error:", mediaData);
+
+    return res.status(500).json({
+      error: "Media upload failed",
+      details: mediaData,
     });
-
-    const mediaData = await mediaMutation.json();
-
-    if (
-      mediaData.errors ||
-      mediaData.data.productCreateMedia.mediaUserErrors.length
-    ) {
-      console.log("Media upload error:", mediaData);
-    }
+  }
+} else {
+  console.log("No valid images found, skipping media upload");
+}
 
     /* -------------------------------------------------- */
     /* 5️⃣ RETURN VARIANT ID                              */
