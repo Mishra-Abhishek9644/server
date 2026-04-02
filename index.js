@@ -501,12 +501,7 @@ app.post("/api/create-ring", async (req, res) => {
       existingData?.data?.productVariants?.nodes?.[0];
 
     if (existingVariant) {
-      await ensureVariantInventoryTracked({
-        endpoint,
-        headers,
-        variantId: existingVariant.id,
-        quantity: inventoryQuantity,
-      });
+      
 
       return res.json({
         variantId: existingVariant.id,
@@ -619,12 +614,7 @@ app.post("/api/create-ring", async (req, res) => {
 const variantId =
   variantData.data.productVariantsBulkUpdate.productVariants[0].id;
 
-    await ensureVariantInventoryTracked({
-      endpoint,
-      headers,
-      variantId,
-      quantity: inventoryQuantity,
-    });
+    
 
    
 /* 4️⃣ ADD PRODUCT IMAGES                             */
