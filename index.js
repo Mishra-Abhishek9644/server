@@ -54,21 +54,21 @@ const ensureVariantInventoryTracked = async ({
     endpoint,
     headers,
     `
-      query VariantInventory($id: ID!) {
-        productVariant(id: $id) {
-          id
-          inventoryItem {
+        query VariantInventory($id: ID!) {
+          productVariant(id: $id) {
             id
+            inventoryItem {
+              id
+            }
+          }
+          locations(first: 1) {
+            nodes {
+              id
+              
+            }
           }
         }
-        locations(first: 1) {
-          nodes {
-            id
-            
-          }
-        }
-      }
-    `,
+      `,
     { id: variantId }
   );
 
@@ -90,26 +90,26 @@ const ensureVariantInventoryTracked = async ({
     endpoint,
     headers,
     `
-      mutation ActivateInventory(
-        $inventoryItemId: ID!
-        $locationId: ID!
-        $available: Int
-      ) {
-        inventoryActivate(
-          inventoryItemId: $inventoryItemId
-          locationId: $locationId
-          available: $available
+        mutation ActivateInventory(
+          $inventoryItemId: ID!
+          $locationId: ID!
+          $available: Int
         ) {
-          inventoryLevel {
-            id
-          }
-          userErrors {
-            field
-            message
+          inventoryActivate(
+            inventoryItemId: $inventoryItemId
+            locationId: $locationId
+            available: $available
+          ) {
+            inventoryLevel {
+              id
+            }
+            userErrors {
+              field
+              message
+            }
           }
         }
-      }
-    `,
+      `,
     {
       inventoryItemId,
       locationId,
@@ -260,23 +260,23 @@ app.get("/api/shopify/settings", async (req, res) => {
         },
         body: JSON.stringify({
           query: `
-            query {
-              products(first: 50, query: "tag:solitaire") {
-                nodes {
-                  id
-                  title
-                  featuredImage {
-                    url
-                  }
-                  priceRange {
-                    minVariantPrice {
-                      amount
+              query {
+                products(first: 50, query: "tag:solitaire") {
+                  nodes {
+                    id
+                    title
+                    featuredImage {
+                      url
+                    }
+                    priceRange {
+                      minVariantPrice {
+                        amount
+                      }
                     }
                   }
                 }
               }
-            }
-          `,
+            `,
         }),
       }
     );
@@ -340,23 +340,23 @@ app.post("/api/shopify/settings/filter", async (req, res) => {
         },
         body: JSON.stringify({
           query: `
-            query getProducts($query: String!) {
-              products(first: 50, query: $query) {
-                nodes {
-                  id
-                  title
-                  featuredImage {
-                    url
-                  }
-                  priceRange {
-                    minVariantPrice {
-                      amount
+              query getProducts($query: String!) {
+                products(first: 50, query: $query) {
+                  nodes {
+                    id
+                    title
+                    featuredImage {
+                      url
+                    }
+                    priceRange {
+                      minVariantPrice {
+                        amount
+                      }
                     }
                   }
                 }
               }
-            }
-          `,
+            `,
           variables: { query },
         }),
       }
@@ -395,28 +395,28 @@ app.get("/api/shopify/settings/:id", async (req, res) => {
         },
         body: JSON.stringify({
           query: `
-            query getProduct($id: ID!) {
-              product(id: $id) {
-                id
-                title
-                productType
-                vendor
+              query getProduct($id: ID!) {
+                product(id: $id) {
+                  id
+                  title
+                  productType
+                  vendor
 
-                images(first: 10) {
-                  nodes {
-                    url
+                  images(first: 10) {
+                    nodes {
+                      url
+                    }
                   }
-                }
 
-                variants(first: 5) {
-                  nodes {
-                    sku
-                    price
+                  variants(first: 5) {
+                    nodes {
+                      sku
+                      price
+                    }
                   }
                 }
               }
-            }
-          `,
+            `,
           variables: { id: fullGid },
         }),
       }
@@ -460,7 +460,6 @@ app.post("/api/create-ring", async (req, res) => {
 
     const totalPrice =
       Number(setting.price || 0) + Number(diamond.price || 0);
-    const inventoryQuantity = getInventoryQuantity(diamond, setting);
 
     const endpoint = `https://${process.env.SHOPIFY_STORE_DOMAIN}/admin/api/2026-01/graphql.json`;
 
@@ -470,10 +469,10 @@ app.post("/api/create-ring", async (req, res) => {
     };
 
     /* -------------------------------------------------- */
-    /* 1️⃣ CHECK IF VARIANT ALREADY EXISTS                */
+    /* 1️⃣ CHECK EXISTING VARIANT                         */
     /* -------------------------------------------------- */
 
-    const searchProduct = await fetch(endpoint, {
+    const searchRes = await fetch(endpoint, {
       method: "POST",
       headers,
       body: JSON.stringify({
@@ -482,9 +481,6 @@ app.post("/api/create-ring", async (req, res) => {
             productVariants(first:1, query:$query) {
               nodes {
                 id
-                product {
-                  id
-                }
               }
             }
           }
@@ -495,48 +491,39 @@ app.post("/api/create-ring", async (req, res) => {
       }),
     });
 
-    const existingData = await searchProduct.json();
+    const searchData = await searchRes.json();
 
     const existingVariant =
-      existingData?.data?.productVariants?.nodes?.[0];
+      searchData?.data?.productVariants?.nodes?.[0];
 
     if (existingVariant) {
-      
-
-      return res.json({
-        variantId: existingVariant.id,
-      });
+      return res.json({ variantId: existingVariant.id });
     }
 
     /* -------------------------------------------------- */
     /* 2️⃣ CREATE PRODUCT                                 */
     /* -------------------------------------------------- */
 
-    const createProduct = await fetch(endpoint, {
+    const createRes = await fetch(endpoint, {
       method: "POST",
       headers,
       body: JSON.stringify({
         query: `
-          mutation productCreate($product: ProductCreateInput!) {
+          mutation ($product: ProductCreateInput!) {
             productCreate(product: $product) {
               product {
                 id
-                variants(first:1){
-                  nodes{
-                    id
-                  }
+                variants(first:1) {
+                  nodes { id }
                 }
               }
-              userErrors {
-                field
-                message
-              }
+              userErrors { field message }
             }
           }
         `,
         variables: {
           product: {
-            title: title,
+            title,
             descriptionHtml: `
               <strong>Setting:</strong> ${setting.title}<br/>
               <strong>Diamond:</strong> ${diamond.shape} ${diamond.carat}ct<br/>
@@ -553,141 +540,161 @@ app.post("/api/create-ring", async (req, res) => {
       }),
     });
 
-    const productData = await createProduct.json();
+    const productData = await createRes.json();
 
     if (
-  productData.errors ||
-  productData?.data?.productCreate?.userErrors?.length
-) {
-  return res.status(500).json(productData);
-}
+      productData.errors ||
+      productData?.data?.productCreate?.userErrors?.length
+    ) {
+      return res.status(500).json(productData);
+    }
 
     const productId = productData.data.productCreate.product.id;
-
-    const defaultVariantId =
+    const variantId =
       productData.data.productCreate.product.variants.nodes[0].id;
 
     /* -------------------------------------------------- */
-    /* 3️⃣ UPDATE DEFAULT VARIANT                         */
+    /* 3️⃣ UPDATE VARIANT PRICE                           */
     /* -------------------------------------------------- */
 
-    const updateVariant = await fetch(endpoint, {
-  method: "POST",
-  headers,
-  body: JSON.stringify({
-    query: `
-      mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-          productVariants {
-            id
-            price
-            
+    const updateRes = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        query: `
+          mutation ($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+            productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+              productVariants { id }
+              userErrors { field message }
+            }
           }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `,
-    variables: {
-      productId,
-      variants: [
-        {
-          id: defaultVariantId,
-          price: totalPrice.toString(),
-          
+        `,
+        variables: {
+          productId,
+          variants: [
+            {
+              id: variantId,
+              price: totalPrice.toString(),
+              inventoryPolicy: "CONTINUE",
+            },
+          ],
         },
-      ],
-    },
-  }),
-});
-    const variantData = await updateVariant.json();
-
-   if (
-  variantData.errors ||
-  variantData?.data?.productVariantsBulkUpdate?.userErrors?.length
-) {
-  return res.status(500).json(variantData);
-}
-
-const variantId =
-  variantData.data.productVariantsBulkUpdate.productVariants[0].id;
-
-    
-
-   
-/* 4️⃣ ADD PRODUCT IMAGES                             */
-/* -------------------------------------------------- */
-
-// ✅ Build media safely
-const mediaInputs = [];
-
-if (setting?.images?.[0]) {
-  mediaInputs.push({
-    originalSource: setting.images[0],
-    mediaContentType: "IMAGE",
-  });
-}
-
-if (diamond?.image) {
-  mediaInputs.push({
-    originalSource: diamond.image,
-    mediaContentType: "IMAGE",
-  });
-}
-
-console.log("MEDIA INPUTS:", mediaInputs);
-console.log("SETTING IMAGE:", setting?.images);
-console.log("DIAMOND IMAGE:", diamond?.image);
-
-// ✅ Only call Shopify if images exist
-if (mediaInputs.length > 0) {
-  const mediaMutation = await fetch(endpoint, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      query: `
-        mutation CreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
-          productCreateMedia(productId: $productId, media: $media) {
-            media {
-              alt
-              mediaContentType
-              status
-            }
-            mediaUserErrors {
-              field
-              message
-            }
-          }
-        }
-      `,
-      variables: {
-        productId,
-        media: mediaInputs, // ✅ use your array here
-      },
-    }),
-  });
-
-  const mediaData = await mediaMutation.json();
-
-  if (
-    mediaData.errors ||
-    mediaData?.data?.productCreateMedia?.mediaUserErrors?.length
-  ) {
-    console.log("Media upload error:", mediaData);
-
-    return res.status(500).json({
-      error: "Media upload failed",
-      details: mediaData,
+      }),
     });
-  }
-} else {
-  console.log("No valid images found, skipping media upload");
-}
+
+    const updateData = await updateRes.json();
+
+    if (
+      updateData.errors ||
+      updateData?.data?.productVariantsBulkUpdate?.userErrors?.length
+    ) {
+      return res.status(500).json(updateData);
+    }
 
     /* -------------------------------------------------- */
-    /* 5️⃣ RETURN VARIANT ID                              */
+    /* 4️⃣ ENABLE INVENTORY TRACKING (FIX 🔥)              */
+    /* -------------------------------------------------- */
+
+    const inventoryRes = await fetch(endpoint, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        query: `
+          query ($id: ID!) {
+            productVariant(id: $id) {
+              inventoryItem {
+                id
+              }
+            }
+          }
+        `,
+        variables: { id: variantId },
+      }),
+    });
+
+    const inventoryData = await inventoryRes.json();
+
+    const inventoryItemId =
+      inventoryData?.data?.productVariant?.inventoryItem?.id;
+
+    if (inventoryItemId) {
+      await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          query: `
+            mutation ($id: ID!, $input: InventoryItemInput!) {
+              inventoryItemUpdate(id: $id, input: $input) {
+                inventoryItem { id tracked }
+                userErrors { field message }
+              }
+            }
+          `,
+          variables: {
+            id: inventoryItemId,
+            input: {
+              tracked: true,
+            },
+          },
+        }),
+      });
+    }
+
+    /* -------------------------------------------------- */
+    /* 5️⃣ ADD MEDIA                                      */
+    /* -------------------------------------------------- */
+
+    const mediaInputs = [];
+
+    if (setting?.images?.[0]) {
+      mediaInputs.push({
+        originalSource: setting.images[0],
+        mediaContentType: "IMAGE",
+      });
+    }
+
+    if (diamond?.image) {
+      mediaInputs.push({
+        originalSource: diamond.image,
+        mediaContentType: "IMAGE",
+      });
+    }
+
+    if (mediaInputs.length > 0) {
+      const mediaRes = await fetch(endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          query: `
+            mutation ($productId: ID!, $media: [CreateMediaInput!]!) {
+              productCreateMedia(productId: $productId, media: $media) {
+                media { status }
+                mediaUserErrors { field message }
+              }
+            }
+          `,
+          variables: {
+            productId,
+            media: mediaInputs,
+          },
+        }),
+      });
+
+      const mediaData = await mediaRes.json();
+
+      if (
+        mediaData.errors ||
+        mediaData?.data?.productCreateMedia?.mediaUserErrors?.length
+      ) {
+        return res.status(500).json({
+          error: "Media upload failed",
+          details: mediaData,
+        });
+      }
+    }
+
+    /* -------------------------------------------------- */
+    /* 6️⃣ RETURN                                         */
     /* -------------------------------------------------- */
 
     res.json({ variantId });
