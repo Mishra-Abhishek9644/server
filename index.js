@@ -577,45 +577,47 @@ app.post("/api/create-ring", async (req, res) => {
     /* -------------------------------------------------- */
 
     const updateVariant = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        query: `
-          mutation productVariantUpdate($input: ProductVariantInput!) {
-            productVariantUpdate(input: $input) {
-              productVariant {
-                id
-                price
-                sku
-              }
-              userErrors {
-                field
-                message
-              }
-            }
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    query: `
+      mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+          productVariants {
+            id
+            price
+            sku
           }
-        `,
-        variables: {
-          input: {
-            id: defaultVariantId,
-            price: totalPrice.toString(),
-            sku: diamond.sku,
-          },
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `,
+    variables: {
+      productId,
+      variants: [
+        {
+          id: defaultVariantId,
+          price: totalPrice.toString(),
+          sku: diamond.sku,
         },
-      }),
-    });
-
+      ],
+    },
+  }),
+});
     const variantData = await updateVariant.json();
 
-    if (
-      variantData.errors ||
-      variantData?.data?.productVariantUpdate?.userErrors?.length
-    ) {
-      return res.status(500).json(variantData);
-    }
+   if (
+  variantData.errors ||
+  variantData?.data?.productVariantsBulkUpdate?.userErrors?.length
+) {
+  return res.status(500).json(variantData);
+}
 
-    const variantId =
-      variantData.data.productVariantUpdate.productVariant.id;
+const variantId =
+  variantData.data.productVariantsBulkUpdate.productVariants[0].id;
 
     await ensureVariantInventoryTracked({
       endpoint,
