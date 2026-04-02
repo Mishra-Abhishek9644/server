@@ -586,7 +586,7 @@ app.post("/api/create-ring", async (req, res) => {
           productVariants {
             id
             price
-            sku
+            
           }
           userErrors {
             field
@@ -601,7 +601,7 @@ app.post("/api/create-ring", async (req, res) => {
         {
           id: defaultVariantId,
           price: totalPrice.toString(),
-          sku: diamond.sku,
+          
         },
       ],
     },
