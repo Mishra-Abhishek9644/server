@@ -448,12 +448,6 @@ app.post("/api/create-diamond", async (req, res) => {
             productType: "Diamond",
             tags: ["diamond"],
             status: "ACTIVE",
-            variants: [
-              {
-                sku: diamond.sku,
-                price: totalPrice.toString()
-              }
-            ]
           },
 
         },
@@ -474,6 +468,105 @@ app.post("/api/create-diamond", async (req, res) => {
     const variantId =
   productData.data.productCreate.product.variants.nodes[0].id;
 
+  // 🔥 STEP: GET inventoryItemId
+const inventoryRes = await fetch(endpoint, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    query: `
+      query ($id: ID!) {
+        productVariant(id: $id) {
+          inventoryItem {
+            id
+          }
+        }
+      }
+    `,
+    variables: { id: variantId },
+  }),
+});
+
+const inventoryData = await inventoryRes.json();
+
+const inventoryItemId =
+  inventoryData?.data?.productVariant?.inventoryItem?.id;
+
+  // 🔥 STEP: SET SKU
+if (inventoryItemId) {
+  const skuUpdate = await fetch(endpoint, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      query: `
+        mutation ($id: ID!, $input: InventoryItemInput!) {
+          inventoryItemUpdate(id: $id, input: $input) {
+            inventoryItem {
+              id
+              sku
+            }
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `,
+      variables: {
+        id: inventoryItemId,
+        input: {
+          sku: diamond.sku,
+        },
+      },
+    }),
+  });
+
+  const skuData = await skuUpdate.json();
+
+  if (
+    skuData.errors ||
+    skuData?.data?.inventoryItemUpdate?.userErrors?.length
+  ) {
+    return res.status(500).json(skuData);
+  }
+}
+
+  const updateVariant = await fetch(endpoint, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    query: `
+      mutation ($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+          productVariants {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `,
+    variables: {
+      productId,
+      variants: [
+        {
+          id: variantId,
+          price: totalPrice.toString(), // ✅ ONLY PRICE
+        },
+      ],
+    },
+  }),
+});
+
+const updateData = await updateVariant.json();
+
+if (
+  updateData.errors ||
+  updateData?.data?.productVariantsBulkUpdate?.userErrors?.length
+) {
+  return res.status(500).json(updateData);
+}
     
     /* 4️⃣ ADD PRODUCT IMAGES                             */
     /* -------------------------------------------------- */
